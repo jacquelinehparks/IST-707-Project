@@ -1,0 +1,86 @@
+# Load packages
+library(arules)
+library(arulesViz)
+library(datasets)
+install.packages("corrplot")
+library(corrplot)
+install.packages("Hmisc")
+library("Hmisc")
+
+# Read in data
+heart<- read.csv("/cloud/project/heart.csv")
+str(heart)
+
+# Rename age column
+names(heart)[names(heart) == "ï..age"] <- "age"
+
+# Convert all variables to numeric
+heart$age<-as.numeric(heart$age)
+heart$sex<-as.numeric(heart$sex)
+heart$cp<-as.numeric(heart$cp)
+heart$trestbps<-as.numeric(heart$trestbps)
+heart$chol<-as.numeric(heart$chol)
+heart$fbs<-as.numeric(heart$fbs)
+heart$restecg<-as.numeric(heart$restecg)
+heart$thalach<-as.numeric(heart$thalach)
+heart$exang<-as.numeric(heart$exang)
+heart$oldpeak<-as.numeric(heart$oldpeak)
+heart$slope<-as.numeric(heart$slope)
+heart$ca<-as.numeric(heart$ca)
+heart$thal<-as.numeric(heart$thal)
+heart$target<-as.numeric(heart$target)
+str(heart)
+
+
+y <- as.matrix(heart)
+rules <- apriori(y, parameter = list(supp = 0.1, conf = 0.8))
+
+itemFrequencyPlot(rules, support = 0.1, cex.names = 0.8)
+itemFrequencyPlot(items(rules))
+options(digits=2)
+inspect(rules[1:20])
+rules <- sort(rules, by="confidence",decreasing=TRUE)
+rules <- apriori(y, parameter=list(supp=0.001, conf=0.8, maxlen=3))
+subset.matrix <- is.subset(rules,rules)
+subset.matrix[lower.tri(subset.matrix, diag=T)] <- NA
+redundant <- colSums(subset.matrix, na.rm=T) >=1
+rules.pruned <- rules[!redundant]
+rules <- rules.pruned
+rules<- apriori(data=y, parameter=list(supp=0.001, conf=0.08),
+                appearance=list(default="lhs", rhs="target"),
+                control=list(verbose=F))
+rules<-sort(rules, decreasing=TRUE, by="confidence")
+inspect(rules[1:25])
+
+# Sorted
+SortedRules_conf <- sort(rules, by="confidence", decreasing=TRUE)
+inspect(head(SortedRules_conf))
+
+SortedRules_sup <- sort(rules, by="support", decreasing=TRUE)
+inspect(head(SortedRules_sup))
+
+SortedRules_lift <- sort(rules, by="lift", decreasing=TRUE)
+inspect(head(SortedRules_lift))
+
+# Displaying Results
+plot(SortedRules_sup[1:25],method="graph",shading="confidence")
+plot(SortedRules_conf[1:25],method="graph",shading="confidence")
+
+# scatterplot
+g <- ggplot(heart, aes(x=age, y=chol)) + geom_point(aes(size=target, color= sex))
+g
+g + geom_smooth(method= "lm")
+
+
+# Compute correlation matrix
+res <- cor(heart)
+round(res, 2)
+cor(res, use = "complete.obs")
+
+res2 <- rcorr(as.matrix(res))
+res2
+
+symnum(res, abbr.colnames = FALSE)
+
+corrplot(res, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
