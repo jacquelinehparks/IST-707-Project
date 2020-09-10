@@ -1,0 +1,89 @@
+# Load packages
+library(arules)
+library(arulesViz)
+library(datasets)
+install.packages("corrplot")
+library(corrplot)
+install.packages("Hmisc")
+library("Hmisc")
+library(sqldf)
+install.packages("kernlab")
+library(kernlab)
+library(e1071)
+library(ggplot2)
+library(gridExtra)
+library(randomForest)
+
+# Read in data
+heart<- read.csv("/cloud/project/heart.csv")
+str(heart)
+
+# Check for duplicates
+duplicated(heart) # One duplicate record found
+heart <- heart[!duplicated(heart),] # Remove duplicated record
+str(heart) # 302 records and 14 variables
+
+
+# Convert numeric variables to nominal
+heart$sex <- factor(heart$sex)
+heart$cp <- factor(heart$cp)
+heart$fbs <- factor(heart$fbs)
+heart$restecg <- factor(heart$restecg)
+heart$exang <- factor(heart$exang)
+heart$slope <- factor(heart$slope)
+heart$ca <- factor(heart$ca)
+heart$thal <- factor(heart$thal)
+heart$target <- factor(heart$target)
+str(heart)
+
+# Rename age column
+names(heart)[names(heart) == "ï..age"] <- "age"
+# Recoding Variables
+heart$restecg=dplyr::recode(heart$restecg, "0"="Normal", "1"="ST-T wave abnormality", "2"="left ventricular hypertropy")
+heart$slope=dplyr::recode(heart$slope, "0"="upward slope", "1"="flat", "2"="downward slope")
+heart$exang=dplyr::recode(heart$exang, "0"="No", "1"="Yes")
+heart$sex=dplyr::recode(heart$sex, "0"="Female", "1"="Male")
+heart$thal=dplyr::recode(heart$thal, "1"="Normal", "2"="Fixed Defect", "3"="Reversible Defect")
+heart$cp=dplyr::recode(heart$cp, "0"="Typical Angina", "1"="Atypical Angina", "2"="Non-anginal pain","3"="Asymptomatic")
+heart$target=dplyr::recode(heart$target, "0"="Higher Chance", "1"="Lower Chance")
+heart$fbs=dplyr::recode(heart$fbs, "0"="less than 120 mg/dl", "1"="more than 120 mg/dl")
+
+# Discretize Age
+heart$age <- cut(heart$age, breaks = c(0,20,30,40,50,60,70,80,90),
+                    labels=c("Teens","Twenties","Thirties","Forties","Fifties","Sixties", "Seventies", "Eighties"))
+# Discretize cholesterol
+heart$chol <- cut(heart$chol, breaks=c(0,199,241,600), labels=c("Healthy Chol","Borderline High Risk","High Risk"), infinity=TRUE)
+# Discretize resting blood pressure
+heart$trestbps <- cut(heart$trestbps, breaks=c(0,119,129,139,179,201), labels=c("Normal","Elevated","Hypertension S1","Hypertension S2","Hypertensive Crisis"))
+
+plot(heart$cp)
+plot(heart$age)
+plot(heart$trestbps)
+plot(heart$chol)
+plot(heart$thal)
+
+
+rules<- apriori(heart, parameter=list(supp=0.01, conf=0.9, maxlen=3),
+                appearance=list(default="lhs", rhs="target=Higher Chance"),
+                control=list(verbose=F))
+inspect(rules)
+plot(rules, method="graph")
+
+
+# Sort by Lift
+rulesbyLift <- head(sort(rules, by="lift"), 20)
+inspect(rulesbyLift)
+
+# Sort by Support
+rulesbySupport <- head(sort(rules, by="supp"), 20)
+inspect(rulesbySupport)
+
+# Sort by Confidence
+rulesbyConfidence <- head(sort(rules, by="conf"),20)
+inspect(rulesbyConfidence)
+
+
+# View item frequency
+summary(rules)
+itemFrequencyPlot(rules, support = 0.1, cex.names = 0.8)
+itemFrequencyPlot(items(rules))
